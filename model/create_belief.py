@@ -2,6 +2,8 @@ import torch
 from .simplex import regular_simplex
 from .simplex import belief_simplex, belief_simplex
 
+from .ind2subv import ind2subv
+
 def create_belief_space(n_world, n_grid):
     """
     Create belief space in PyTorch.
@@ -19,11 +21,15 @@ def create_belief_space(n_world, n_grid):
     if n_grid > 0:
         g_sub, g_ind = regular_simplex(n_world, n_grid)
         g_to_b = torch.zeros((1, (n_grid+1) ** n_world), dtype=torch.long)
-        
-        g_to_b[g_ind] = torch.arange(1, len(g_ind) + 1)
+
+        g_ind_flat = g_ind.flatten()
+        g_to_b_flat = g_to_b.flatten()
+        g_to_b_flat[g_ind_flat - 1] = torch.arange(1, len(g_ind_flat) + 1)
+
+        g_to_b = g_to_b_flat.view_as(g_to_b)
 
 
-        b_sub, b_to_g = belief_simplex(g_sub, n_grid)
+        b_sub, b_to_g, _ = belief_simplex(g_sub, n_grid)
 
     else:
         b_sub = torch.tensor([[1.0], [1.0], [1.0]]) / 3
@@ -49,9 +55,6 @@ def create_belief_state(is_c_ind_valid, n_grid):
     """
     
     n_world, n_c_ind = is_c_ind_valid.shape
-
-    print(n_world, n_c_ind)
-
     # Create belief space
     b_sub, b_to_g, g_to_b = create_belief_space(n_world, n_grid)
     n_b_sub = b_sub.shape[1]
@@ -61,7 +64,7 @@ def create_belief_state(is_c_ind_valid, n_grid):
     n_s_ind = torch.prod(s_dim).item()
     s_ind = torch.arange(1, n_s_ind + 1)
 
-    # Equivalent of ind2subv in MATLAB
-    s_sub = torch.stack(torch.meshgrid([torch.arange(d) for d in s_dim], indexing='ij'), dim=-1).reshape(-1, len(s_dim))
+    s_sub = ind2subv(s_dim,s_ind).T
+
 
     return s_sub, s_dim, b_sub, b_to_g, g_to_b

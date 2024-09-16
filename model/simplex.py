@@ -69,5 +69,4 @@ def regular_simplex(dim, k):
     # Compute linear indices
 
     G_ind = g_sub_to_g_ind(G_sub, dim, k)
-    print(G_sub)
     return G_sub, G_ind

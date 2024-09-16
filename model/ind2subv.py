@@ -16,7 +16,10 @@ def ind2subv(siz, index):
     n = len(siz)
     
     # Cumulative product of sizes
-    cum_size = torch.cumprod(torch.tensor(siz), dim=0)
+    if not isinstance(siz, torch.Tensor):
+        cum_size = torch.cumprod(torch.tensor(siz), dim=0)
+    else:
+        cum_size = siz
     prev_cum_size = torch.cat([torch.tensor([1]), cum_size[:-1]])
     
     # Convert to zero-based index
@@ -32,9 +35,3 @@ def ind2subv(siz, index):
     sub = torch.floor(sub / prev_cum_size).long() + 1
     
     return sub
-
-
-if __name__ == "__main__":
-    siz = [3, 3]
-    index = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9])
-    print(ind2subv(siz, index))
