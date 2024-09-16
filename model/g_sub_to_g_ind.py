@@ -22,13 +22,19 @@ def g_sub_to_g_ind(g_sub, dim, k):
     # Get indices of valid columns
     valid_indices = torch.nonzero(g_ind_in_range).squeeze()
 
+
     if valid_indices.numel() > 0:
+        
         # Prepare subscripts for valid indices (adding 1 for 1-based indexing)
         subs = g_sub[:, valid_indices] + 1  # MATLAB uses 1-based indexing
-
+        if subs.dim() == 1:  # If it's 1D, we unsqueeze to make it 2D
+            subs = subs.unsqueeze(1)
         # Create size vector
         siz = torch.tensor([k + 1] * dim, dtype=torch.long)
 
+        
+        
+        
         # Compute linear indices using sub2indv
         linear_indices = sub2indv(siz, subs)
 

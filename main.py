@@ -1,26 +1,26 @@
-from model import create_belief_state
+from model import barycentric_coord
 import torch
 
 
 
-def test_create_belief_state():
-    # Define a valid indices tensor and grid size
-    is_c_ind_valid = torch.tensor([[1, 0], [0, 1]], dtype=torch.long)
-    n_grid = 1
+# Test Case 1
+b_sub = torch.tensor([[1, 0], [0, 1]], dtype=torch.float32)
+b_to_g = torch.tensor([[2, 0], [0, 3]], dtype=torch.float32)
 
-    # Call the function
-    s_sub, s_dim, b_sub, b_to_g, g_to_b = create_belief_state(is_c_ind_valid, n_grid)
+neighbor_g_ind, b_coord = barycentric_coord(b_sub, b_to_g)
+print("Test Case 1:")
+print("neighbor_g_ind:")
+print(neighbor_g_ind)
+print("b_coord:")
+print(b_coord)
 
-    # Output the results
-    print("State Subgrid (s_sub):")
-    print(s_sub)
-    print("\nState Dimensions (s_dim):")
-    print(s_dim)
-    print("\nBelief Subgrid (b_sub):")
-    print(b_sub)
-    print("\nMapping from Belief to Grid (b_to_g):")
-    print(b_to_g)
-    print("\nMapping from Grid to Belief (g_to_b):")
-    print(g_to_b)
+# Test Case 2
+b_sub = torch.tensor([[0, 1, 1], [1, 0, 1]], dtype=torch.float32)
+b_to_g = torch.tensor([[1, 0], [0, 1]], dtype=torch.float32)
 
-test_create_belief_state()
+neighbor_g_ind, b_coord = barycentric_coord(b_sub, b_to_g)
+print("Test Case 2:")
+print("neighbor_g_ind:")
+print(neighbor_g_ind)
+print("b_coord:")
+print(b_coord)
