@@ -1,26 +1,21 @@
 from model import barycentric_coord
 import torch
+import numpy as np
 
 
 
-# Test Case 1
-b_sub = torch.tensor([[1, 0], [0, 1]], dtype=torch.float32)
-b_to_g = torch.tensor([[2, 0], [0, 3]], dtype=torch.float32)
 
-neighbor_g_ind, b_coord = barycentric_coord(b_sub, b_to_g)
-print("Test Case 1:")
-print("neighbor_g_ind:")
-print(neighbor_g_ind)
-print("b_coord:")
-print(b_coord)
+# Initial tensor of shape [1, 1, 3]
+b_sub_bi = torch.tensor([[[1], [2], [3]]])  # Shape [1, 1, 3]
 
-# Test Case 2
-b_sub = torch.tensor([[0, 1, 1], [1, 0, 1]], dtype=torch.float32)
-b_to_g = torch.tensor([[1, 0], [0, 1]], dtype=torch.float32)
+# Define the repeat sizes
+n_world = 3          # Example value
+max_co_ind2 = 4      # Example value
+n_c_sub = 76         # Example value
+n_action = 6         # Example value
 
-neighbor_g_ind, b_coord = barycentric_coord(b_sub, b_to_g)
-print("Test Case 2:")
-print("neighbor_g_ind:")
-print(neighbor_g_ind)
-print("b_coord:")
-print(b_coord)
+# Now repeat the tensor along each dimension
+# b_sub_bi_repeated = np.tile(b_sub_bi, [n_world, max_co_ind2, 1, n_c_sub, n_action])
+
+# Check the final shape
+print(b_sub_bi.shape)  # This should output torch.Size([3, 4, 3, 76, 6])
