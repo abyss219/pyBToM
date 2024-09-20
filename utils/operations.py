@@ -32,7 +32,12 @@ def length(a:np.ndarray):
     Mimics MATLAB's length function.
     Returns the size of the largest dimension of the input array.
     """
+    if not isinstance(a, np.ndarray):
+        a = np.array(a)
+
+
     return max(a.shape)
+
 
 
 def pad_sublists(input_list, padding_value=np.nan):

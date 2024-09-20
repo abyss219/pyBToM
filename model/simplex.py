@@ -2,71 +2,49 @@ import torch
 import itertools
 from .g_sub_to_g_ind import g_sub_to_g_ind
 from .ind2subv import ind2subv
+from utils import find
 
 import torch
 
+import numpy as np
+
 def belief_simplex(G, k):
     """
-    Regular grid to belief simplex construction in PyTorch.
+    lovejoy regular grid -> belief simplex construction
 
-    Args:
-        G: points on regular simplex returned by regular_simplex (tensor of size [dim, num_points])
+    Input:
+        G: points on regular simplex returned by regular_simplex
         k: grid size
 
-    Returns:
-        B: points in belief simplex (tensor of size [dim, num_points])
-        B_to_G: transformation matrix from belief to grid
-        G_to_B: transformation matrix from grid to belief
+    Output:
+        B: Transformed points on the belief simplex
+        B_to_G: Upper triangular matrix used for transformation from B to G
+        G_to_B: Inverse of B_to_G, used for transformation from G to B
     """
-    
     dim = G.shape[0]
-
-    # Construct the upper triangular matrix B_to_G
-    B_to_G = torch.triu(torch.full((dim, dim), k, dtype=torch.float64))
-
-    # Invert the B_to_G matrix to get G_to_B
-    G_to_B = torch.inverse(B_to_G)
-
-    # Multiply G_to_B with G to get points in the belief simplex
-    B = torch.matmul(G_to_B, G.to(torch.float64))
+    B_to_G = np.triu(np.full((dim, dim), k))
+    G_to_B = np.linalg.inv(B_to_G)
+    B = G_to_B @ G.astype(float)
 
     return B, B_to_G, G_to_B
 
 
 def regular_simplex(dim, k):
-    """
-    Constructs a regular simplex grid.
-
-    Parameters:
-        dim (int): Number of dimensions.
-        k (int): Grid size -- each edge of the simplex has k+1 points.
-
-    Returns:
-        G_sub (torch.Tensor): Subscripts of the grid points in the simplex of shape [dim, N].
-        G_ind (torch.Tensor): Linear indices of the grid points in the simplex of shape [N].
-    """
     # Generate all points on the hypercube
-    N = (k + 1) ** (dim - 1)
-    indices = torch.arange(1, N + 1, dtype=torch.long)  # 1-based indexing
+    G = ind2subv(np.tile(k+1, (dim-1,)), np.arange(1, (k+1)**(dim-1) + 1)).T
 
-    sizes = [k + 1] * (dim - 1)
-    
-    G = ind2subv(sizes, indices).T
+    # Create G_sub by adding the k row and adjusting G
+    G_sub = np.vstack([np.tile(k, (1, G.shape[1])), G - 1])
 
-    
-    # Construct G_sub
-    G_sub = torch.cat([torch.full((1, G.size(1)), k), G - 1], dim=0)
-    
-    # Apply lower triangular constraint
-    diff_G_sub = G_sub[1:, :] - G_sub[:-1, :]
-    valid_mask = torch.all(diff_G_sub <= 0, dim=0)
-    G_ind_valid = torch.nonzero(valid_mask).squeeze()
+    # Apply the lower triangular constraint (all(diff(G_sub) <= 0, axis=1) in MATLAB)
+    diffs = np.diff(G_sub, axis=0) <= 0
+    G_ind_valid = find(np.all(diffs, axis=0))
 
-    
-    # Filter valid subscripts
+    # Subset G_sub with valid indices
     G_sub = G_sub[:, G_ind_valid]
 
-    # Compute linear indices
-
+    # Convert G_sub to G_ind using the g_sub_to_g_ind function
     G_ind = g_sub_to_g_ind(G_sub, dim, k)
+    print(dim)
+    print(k)
     return G_sub, G_ind

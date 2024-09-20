@@ -1,46 +1,36 @@
-import torch
+import numpy as np
 from .sub2indv import sub2indv
 
 def g_sub_to_g_ind(g_sub, dim, k):
     """
-    Converts subscript indices to linear indices for an array of size (k+1)^dim.
-
+    [g_ind] = g_sub_to_g_ind(g_sub, dim, k)
+    
+    Converts subscripts to linear indices, ensuring that subscripts are within the valid range.
+    
     Parameters:
-    - g_sub (torch.Tensor): Tensor of shape [dim, N], where each column represents subscript indices.
-    - dim (int): The number of dimensions.
-    - k (int): The maximum index in each dimension (indices range from 0 to k).
-
+    g_sub (ndarray): Subscripts array of shape (dim, N)
+    dim (int): Number of dimensions
+    k (int): Maximum allowed subscript value in each dimension
+    
     Returns:
-    - g_ind (torch.Tensor): Tensor of shape [N], containing the linear indices.
+    g_ind (ndarray): Linear indices corresponding to the valid subscripts
     """
-    N = g_sub.shape[1]
-    g_ind = torch.zeros(N, dtype=torch.long)
+    # Initialize g_ind with zeros
+    g_ind = np.zeros(g_sub.shape[1], dtype=int)
+    
+    # Determine which columns are within the valid range [0, k]
+    g_ind_in_range = np.all((g_sub <= k) & (g_sub >= 0), axis=0)
+    
+    # Prepare dimensions array
+    dims = np.full(dim, k + 1)
 
-    # Check which columns have all indices within the valid range [0, k]
-    g_ind_in_range = torch.all((g_sub <= k) & (g_sub >= 0), dim=0)
+    
+    # Get subscripts for columns that are in range
+    subs = g_sub[:, g_ind_in_range] + 1
+    
+    # Compute linear indices for valid subscripts
+    g_ind[g_ind_in_range] = sub2indv(dims, subs)
+    
+    return g_ind
 
-    # Get indices of valid columns
-    valid_indices = torch.nonzero(g_ind_in_range).squeeze()
 
-
-    if valid_indices.numel() > 0:
-        
-        # Prepare subscripts for valid indices (adding 1 for 1-based indexing)
-        subs = g_sub[:, valid_indices] + 1  # MATLAB uses 1-based indexing
-        if subs.dim() == 1:  # If it's 1D, we unsqueeze to make it 2D
-            subs = subs.unsqueeze(1)
-        # Create size vector
-        siz = torch.tensor([k + 1] * dim, dtype=torch.long)
-
-        
-        
-        
-        # Compute linear indices using sub2indv
-        linear_indices = sub2indv(siz, subs)
-
-        # Assign computed indices to the result
-        g_ind[valid_indices] = linear_indices
-
-    g_ind_matrix = g_ind.unsqueeze(0)
-
-    return g_ind_matrix
