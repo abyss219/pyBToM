@@ -25,4 +25,8 @@ def equals(a):
         difference = a - M_matlab
         mse = np.mean(np.square(difference))
         print(f"The Mean Squared Error between Two Matrices is {mse}")
+        
+        # Find the indices where the matrices differ
+        differing_indices = np.argwhere(~np.isclose(a, M_matlab, equal_nan=True))
+        print(f"The matrices differ at the following indices:\n{differing_indices}")
     return comparison

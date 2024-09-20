@@ -97,6 +97,7 @@ def create_coord_trans(world, action, p_action_fail):
             c_trans_stay[c_sub_valid[move_in_bounds[move_valid]]] = False
             c_trans_stay_ind = find(c_trans_stay)
             n_c_trans_stay_ind = length(c_trans_stay_ind)
+            
 
             c_trans_sub = np.zeros((4, n_c_trans_stay_ind), dtype=int)
             c_trans_sub[0, :] = c_trans_stay_ind + 1
@@ -104,19 +105,21 @@ def create_coord_trans(world, action, p_action_fail):
             c_trans_sub[2, :] = nw + 1
             c_trans_sub[3, :] = na + 1
 
+            
+
             c_trans_indices = sub2indv(c_trans.shape, c_trans_sub)
             
 
             c_trans_flat = c_trans.ravel(order='F')
             c_trans_flat[c_trans_indices - 1] = 1
             c_trans = c_trans_flat.reshape(c_trans.shape, order='F')
-
-
+        
         c_trans[-1, -1, nw, :] = 1
-        g = np.append(is_goal_ind.squeeze(), 1)
-
-        c_trans[-1,g,nw, n_action - 1] = 1
-
+        
+        g = np.concatenate([is_goal_ind.squeeze(), np.array([1])])
+        g_mask = g == 1
+        
+        c_trans[-1,g_mask,nw, n_action - 1] = 1
 
         g = np.append(is_goal_ind, 1)
         g = np.logical_not(g)
@@ -126,6 +129,8 @@ def create_coord_trans(world, action, p_action_fail):
         identity_matrix = np.eye(not_goal_count)
 
         c_trans[np.ix_(g, g, [nw], [n_action - 1])] = identity_matrix.reshape(not_goal_count, not_goal_count, 1, 1)
+        
+        
 
 
     return c_trans, c_sub, is_c_ind_valid
