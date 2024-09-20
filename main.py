@@ -3,13 +3,6 @@ import torch
 import numpy as np
 from utils import equals
 
+a = np.array([np.nan, np.nan])[np.newaxis, :]
 
-
-# Initial tensor of shape [1, 1, 3]
-b_sub_bi = torch.tensor([[[1], [2], [3]]])  # Shape [1, 1, 3]
-
-equals(b_sub_bi)
-
-array = [3, 4, 5]
-
-print(array[0:-1])
+equals(a)

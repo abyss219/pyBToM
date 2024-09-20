@@ -1,29 +1,25 @@
-import torch
+import numpy as np
 
-def sub2indv(siz:torch.Tensor, sub):
+def sub2indv(siz, sub):
     """
-    Convert subscripts to linear indices.
-
-    Parameters:
-    siz : list or tuple of ints
-        Size of the array into which sub is an index.
-    sub : Tensor of size (n, nsub), dtype int64
-        Each column sub[:, i] is the ith set of subscripts into the array.
-
-    Returns:
-    ind : Tensor of size (nsub,), dtype int64
-        Linear indices into the array of size siz.
-    """
-    if sub.numel() == 0:
-        return torch.empty(0, dtype=torch.int64)
+    ind = sub2indv(siz, sub)
     
-    nsub = sub.size(1)
-    if not isinstance(siz, torch.Tensor):
-        siz_tensor = torch.tensor(siz, dtype=torch.int64)
-    else:
-        siz_tensor = siz
-        
-    k = torch.cat((torch.tensor([1], dtype=torch.int64), torch.cumprod(siz_tensor[:-1], 0))).unsqueeze(1)
-    sub = sub.to(dtype=torch.int64)
-    ind = torch.sum((sub - 1) * k, dim=0) + 1  # Subtract 1 from sub and add 1 to the result
+    Improved version of sub2ind.
+    
+    INPUTS
+        siz - size of array into which sub is an index
+        sub - sub[:, i] is the ith set of subscripts into the array.
+    
+    OUTPUTS
+        ind - linear index (or vector of indices) into given array.
+    """
+    if sub.size == 0:
+        return np.array([], dtype=np.uint32)
+    
+    n = len(siz)
+    nsub = sub.shape[1]  # Number of subscript sets
+
+    k = np.array([1] + list(np.cumprod(siz[:-1])), dtype=np.uint32).reshape(n, 1)
+    ind = np.sum((sub - 1).astype(np.uint32) * k, axis=0) + 1
+
     return ind

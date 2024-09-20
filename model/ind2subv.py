@@ -1,37 +1,31 @@
-import torch
+import numpy as np
 
 def ind2subv(siz, index):
     """
-    Convert linear index/indices to subscript indices for a tensor of given size.
+    ind2subv(siz, index) returns a vector of the equivalent subscript values 
+    corresponding to a single index into an array of size siz.
+    If index is a vector, then the result is a matrix, with subscript vectors
+    as rows.
+
+    Note: This function assumes 1-based indexing, similar to MATLAB.
     
     Parameters:
-    - siz: A list or tensor specifying the size of each dimension of the tensor.
-    - index: A tensor containing the linear index or indices to be converted.
+    - siz: list or array-like, size of each dimension
+    - index: integer or array-like of integers, linear indices
     
     Returns:
-    - sub: A tensor where each row corresponds to the subscript indices.
+    - sub: numpy array of subscripts, shape (num_indices, num_dimensions)
     """
-    
-    # Number of dimensions
+    siz = np.array(siz, dtype=np.uint32)
     n = len(siz)
-    
-    # Cumulative product of sizes
-    if not isinstance(siz, torch.Tensor):
-        cum_size = torch.cumprod(torch.tensor(siz), dim=0)
-    else:
-        cum_size = siz
-    prev_cum_size = torch.cat([torch.tensor([1]), cum_size[:-1]])
-    
-    # Convert to zero-based index
-    index = index - 1
-    
-    # Prepare for repeated broadcasting
-    index = index.view(-1, 1)  # Make sure index is a column vector
-    cum_size = cum_size.view(1, -1)  # Row vector
-    prev_cum_size = prev_cum_size.view(1, -1)  # Row vector
-    
-    # Calculate the subscript indices
-    sub = index % cum_size
-    sub = torch.floor(sub / prev_cum_size).long() + 1
-    
+    cum_size = np.cumprod(siz)
+    prev_cum_size = np.concatenate(([1], cum_size[:-1]))
+    index = np.asarray(index).flatten() - 1  # Adjust for 1-based indexing
+    index = index.astype(np.uint32)
+    num_indices = index.shape[0]
+    sub = np.empty((num_indices, n), dtype=np.uint32)
+
+    for i in range(n):
+        sub[:, i] = (index % cum_size[i]) // prev_cum_size[i] + 1  # Compute subscripts
+
     return sub

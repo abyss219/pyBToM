@@ -1,121 +1,132 @@
-import torch
 from .create_coord_space import create_coord_space
 from .sub2indv import sub2indv
-from utils import equals
+from utils import equals, find, pad_sublists, length
+import numpy as np
 
 def create_coord_trans(world, action, p_action_fail):
     """
     Create deterministic coordinate transition matrix with absorbing end state.
 
     Input:
-        - world: a list of world objects
-        - action: PyTorch tensor of actions, shape (2, n_action)
-        - p_action_fail: probability of action failure (float)
+      world:
+      action:
+      p_action_fail:
 
     Output:
-        - c_trans: PyTorch tensor of size (n_c_ind, n_c_ind, n_world, n_action). 
-                   c_trans[cj, ci, w, a] = p(cj | ci, a, w).
-        - c_sub: PyTorch tensor of coordinate subscripts
-        - is_c_ind_valid: PyTorch boolean tensor indicating valid indices
+      c_trans: size(n_c_ind,n_c_ind,n_world,n_action). c_trans[cj,ci,a,w] = p(cj|ci,a,w).
+      c_sub:
+      is_c_ind_valid:
     """
 
     n_action = action.shape[1]
-    
-    # Create coordinate space
+
     c_sub, is_c_ind_valid = create_coord_space(world)
-    
+
+
     n_c_sub = c_sub.shape[1]
-    n_world, n_c_ind = is_c_ind_valid.shape
-    
-    # Initialize transition matrix
-    c_trans = torch.zeros((n_c_ind, n_c_ind, n_world, n_action), dtype=torch.float32)
-    
+
+    n_world,n_c_ind = is_c_ind_valid.shape
+
+    c_trans = np.zeros((n_c_ind, n_c_ind, n_world, n_action))
+
     for nw in range(n_world):
-        graph_sz = torch.tensor(world[nw]['graph_sz']).unsqueeze(-1)
-    
-        c_sub_valid = torch.nonzero(is_c_ind_valid[nw:nw+1, :n_c_sub])
+        graph_sz = np.array(world[nw]['graph_sz'])
+        c_sub_valid = find(is_c_ind_valid[nw:nw+1, :n_c_sub])
+        
 
-        a = is_c_ind_valid[nw:nw+1, :n_c_sub].numpy()
-        import numpy as np
-        a = np.sum(np.nonzero(a)[1])
-        print(a)
-        return
+        # Assuming save functionality is not required in Python
 
-        # print(a.size())
-        # print(torch.sum(a))
-        # print(torch.nonzero(a))
-        # equals(a)
+        n_c_sub_valid = len(c_sub_valid)
 
-        c_sub_invalid = torch.nonzero(~is_c_ind_valid[nw, :n_c_sub], as_tuple=False).view(-1)
-    
-        in_bounds = graph_sz.unsqueeze(1).repeat(1, c_sub_valid.numel())
-    
-        # Initialize is_goal_ind
-        is_goal_ind = torch.zeros(n_c_sub, dtype=torch.bool)
-    
-        goal_pose = [gp for gp in world[nw]['goal_pose'] if len(gp) > 0]
-        goal_pose = torch.tensor(goal_pose, dtype=torch.int64)
-        if goal_pose.dim() == 1:
-            goal_pose = goal_pose.unsqueeze(1)
-        if c_sub.shape[1] > 0 and goal_pose.numel() > 0:
-            is_goal_ind = (goal_pose.unsqueeze(2) == c_sub.unsqueeze(1)).all(dim=0).any(dim=1)
-    
-        for na in range(n_action - 1):
+        c_sub_invalid = find(np.logical_not(is_c_ind_valid[nw:nw+1, :]))
+
+        in_bounds = np.tile(graph_sz[:, np.newaxis], (1, n_c_sub_valid))
+
+        is_goal_ind = np.zeros((n_c_sub,), dtype=bool)[:, np.newaxis]
+
+        goal_pose = np.array(pad_sublists(world[nw]['goal_pose']))
+        for nc in range(n_c_sub):
+            is_goal_ind[nc] = np.any(np.all(goal_pose == c_sub[:, nc], axis=1))
+        
+        for na in range(n_action - 1):  # MATLAB indices from 1 to n_action - 1
             # Moves from invalid c_subs
-            if c_sub_invalid.numel() > 0:
-                c_trans[:, c_sub_invalid, nw, na] = float('nan')
-    
-            # Compute move_sub
-            move_sub = c_sub[:, c_sub_valid] + action[:, na].unsqueeze(1).to(torch.int64)
-            move_in_bounds_mask = (move_sub <= in_bounds).all(dim=0) & (move_sub > 0).all(dim=0)
-            move_in_bounds = torch.nonzero(move_in_bounds_mask, as_tuple=False).view(-1)
-            move_sub_in_bounds = move_sub[:, move_in_bounds]
-    
-            # Proceed only if there are valid moves
-            if move_sub_in_bounds.numel() > 0:
-                move_ind = sub2indv(graph_sz.tolist(), move_sub_in_bounds)
-                move_ind = move_ind.to(torch.int64)
-                move_valid = is_c_ind_valid[nw, move_ind]
-                n_move_valid = move_valid.sum().item()
-    
-                if n_move_valid > 0:
-                    # Valid moves
-                    move_ind_valid = move_ind[move_valid]
-                    c_sub_valid_indices = c_sub_valid[move_in_bounds[move_valid]]
-    
-                    c_trans_sub = torch.zeros((4, n_move_valid), dtype=torch.int64)
-                    c_trans_sub[0, :] = move_ind_valid  # cj
-                    c_trans_sub[1, :] = c_sub_valid_indices  # ci
-                    c_trans_sub[2, :] = nw  # nw
-                    c_trans_sub[3, :] = na  # na
-                    
-                    c_trans[sub2indv(c_trans.size(),c_trans_sub)] = 1
-    
-            # Invalid moves: moves out of bounds or into obstacles
-            c_trans_stay = is_c_ind_valid[nw, :n_c_sub].clone()
-            if move_in_bounds.numel() > 0 and move_valid.numel() > 0:
-                indices_to_set_false = c_sub_valid[move_in_bounds[move_valid]]
-                c_trans_stay[indices_to_set_false] = False
-            c_trans_stay_ind = torch.nonzero(c_trans_stay, as_tuple=False).view(-1)
-    
-            if c_trans_stay_ind.numel() > 0:
-                c_trans_sub = torch.zeros((4, c_trans_stay_ind.numel()), dtype=torch.int64)
-                c_trans_sub[0, :] = c_trans_sub[1, :] = c_trans_stay_ind  # cj = ci = stay indices
-                c_trans_sub[2, :] = nw
-                c_trans_sub[3, :] = na
-                c_trans[c_trans_sub[0], c_trans_sub[1], c_trans_sub[2], c_trans_sub[3]] = 1
             
-        # Set absorbing state transition
-        c_trans[absorbing_state, absorbing_state, nw, :] = 1
-    
-        goal_indices = torch.nonzero(is_goal_ind, as_tuple=False).view(-1)
-        indices = torch.cat((goal_indices, torch.tensor([absorbing_state], dtype=torch.int64)))
-        if indices.numel() > 0:
-            c_trans[absorbing_state, indices, nw, n_action - 1] = 1
-    
-        not_goal_indices = torch.nonzero(~is_goal_ind, as_tuple=False).view(-1)
-        n_not_goal = not_goal_indices.numel()
-        if n_not_goal > 0:
-            c_trans[not_goal_indices[:, None], not_goal_indices[None, :], nw, n_action - 1] = torch.eye(n_not_goal, dtype=c_trans.dtype)
-    
+            c_trans[:, c_sub_invalid, nw, na] = np.nan
+
+            # Compute move_sub
+            move_sub = c_sub[:, c_sub_valid] + np.tile(action[:, na:na+1], (1, n_c_sub_valid))
+
+            # Determine in-bounds moves
+            condition1 = np.all(move_sub <= in_bounds, axis=0)
+            condition2 = np.all(move_sub > 0, axis=0)
+            # Combine the two conditions with a logical AND
+            result = condition1 & condition2
+            move_in_bounds = find(result)[np.newaxis, :]
+
+            # Convert subscripts to linear indices
+            move_ind = sub2indv(graph_sz[:, np.newaxis], move_sub[:, move_in_bounds[0]])[np.newaxis, :]
+
+            # Check which moves are valid
+            move_valid = is_c_ind_valid[nw, move_ind - 1]
+
+            n_move_valid = np.sum(move_valid)
+
+            # Valid moves
+            c_trans_sub = np.zeros((4, n_move_valid), dtype=int)
+
+
+            c_trans_sub[0, :] = move_ind[move_valid]
+            c_trans_sub[1, :] = c_sub_valid[move_in_bounds[move_valid]] + 1
+
+            c_trans_sub[2, :] = nw + 1
+            c_trans_sub[3, :] = na + 1
+
+            # Valid moves succeed
+            c_trans_indices = sub2indv(c_trans.shape, c_trans_sub)
+            c_trans_flat = c_trans.ravel(order='F')
+            c_trans_flat[c_trans_indices - 1] = 1 - p_action_fail
+            c_trans = c_trans_flat.reshape(c_trans.shape, order='F')
+
+            # Valid moves fail (stay in the same position)
+            c_trans_sub[0, :] = c_trans_sub[1, :]
+            c_trans_indices = sub2indv(c_trans.shape, c_trans_sub)
+            c_trans.flat[c_trans_indices] += p_action_fail
+
+            # Invalid moves (stay in the same position)
+            c_trans_stay = is_c_ind_valid[nw, :n_c_sub].copy()
+            c_trans_stay[c_sub_valid[move_in_bounds[move_valid]]] = False
+            c_trans_stay_ind = find(c_trans_stay)
+            n_c_trans_stay_ind = length(c_trans_stay_ind)
+
+            c_trans_sub = np.zeros((4, n_c_trans_stay_ind), dtype=int)
+            c_trans_sub[0, :] = c_trans_stay_ind + 1
+            c_trans_sub[1, :] = c_trans_stay_ind + 1
+            c_trans_sub[2, :] = nw + 1
+            c_trans_sub[3, :] = na + 1
+
+            c_trans_indices = sub2indv(c_trans.shape, c_trans_sub)
+            
+
+            c_trans_flat = c_trans.ravel(order='F')
+            c_trans_flat[c_trans_indices - 1] = 1
+            c_trans = c_trans_flat.reshape(c_trans.shape, order='F')
+
+
+        c_trans[-1, -1, nw, :] = 1
+        g = np.append(is_goal_ind.squeeze(), 1)
+
+        c_trans[-1,g,nw, n_action - 1] = 1
+
+
+        g = np.append(is_goal_ind, 1)
+        g = np.logical_not(g)
+
+
+        not_goal_count = np.sum(np.logical_not(is_goal_ind))  # Get the number of non-goal indices
+        identity_matrix = np.eye(not_goal_count)
+
+        c_trans[np.ix_(g, g, [nw], [n_action - 1])] = identity_matrix.reshape(not_goal_count, not_goal_count, 1, 1)
+
+
     return c_trans, c_sub, is_c_ind_valid
+

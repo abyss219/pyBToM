@@ -1,31 +1,42 @@
-import torch
 import numpy as np
 from model import ind2subv
+from utils import length, pad_sublists
 
 def create_goal_reward(worlds, n_reward_grid):
     """
-    Create goal reward matrix.
+    [goal_reward] = create_goal_reward(worlds, n_reward_grid)
+    
+    Generates the goal reward matrix based on the number of reward grids.
     
     Parameters:
-    - worlds: A list of world objects, where each world contains a 'goal_pose' attribute.
-    - n_reward_grid: The number of reward grids.
+    - worlds: list of world objects or dictionaries with a 'goal_pose' attribute
+    - n_reward_grid: integer, number of reward grids
     
     Returns:
-    - goal_reward: A tensor containing the goal rewards.
+    - goal_reward: numpy array of goal rewards
     """
-    # Get the number of goal objects (assumed to be the same for all worlds)
+    # Ensure n_reward_grid is a positive integer
+    if not isinstance(n_reward_grid, int) or n_reward_grid <= 0:
+        raise ValueError("n_reward_grid must be a positive integer.")
 
-    n_goal_obj = len(worlds[0]['goal_pose'])
+    p  = pad_sublists(worlds[0]['goal_pose'])
+    p = np.array(p)
+    n_goal_obj = length(p)
 
+    # Create size array: [n_reward_grid, n_reward_grid, ..., n_goal_obj times]
+    siz = [n_reward_grid] * n_goal_obj
 
-    # Generate indices for the goal rewards
-    indices = torch.arange(1, (n_reward_grid ** n_goal_obj) + 1)
-    G = ind2subv([n_reward_grid] * n_goal_obj, indices).float() - 1  # Convert linear indices to subscripts and subtract 1
+    # Total number of indices
+    total_indices = n_reward_grid ** n_goal_obj
 
-    # Calculate goal rewards
-    goal_reward = -20 + G * 20
-    
+    # Create index array: from 1 to total_indices inclusive (1-based indexing)
+    index = np.arange(1, total_indices + 1, dtype=np.uint32)
+
+    # Compute G: subscript vectors corresponding to linear indices in an array of size siz
+    G = ind2subv(siz, index) - 1  # Subtract 1 to adjust to zero-based indexing
+    G = G.astype(np.float64)      # Convert to double precision float
+
+    # Compute goal_reward
+    goal_reward = -20 + G * 20    # Element-wise multiplication and addition
+
     return goal_reward
-
-
-

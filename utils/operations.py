@@ -27,11 +27,29 @@ def find(arr, condition=None):
     
     return linear_indices
 
+def length(a:np.ndarray):
+    """
+    Mimics MATLAB's length function.
+    Returns the size of the largest dimension of the input array.
+    """
+    return max(a.shape)
 
 
-
-
-siz = (3, 4, 5)
-sub = np.array([[1, 2, 3], [2, 3, 4], [3, 4, 5]])  # Example subscripts
-ind = sub2indv(siz, sub)
-print(ind)
+def pad_sublists(input_list, padding_value=np.nan):
+    """
+    Pads sublists to make all sublists the same length.
+    
+    Parameters:
+    - input_list: list of lists (with potentially different lengths)
+    - padding_value: value to pad the shorter sublists (default: np.nan)
+    
+    Returns:
+    - A list where all sublists are of the same length.
+    """
+    # Find the length of the longest sublist
+    max_len = max(len(sublist) for sublist in input_list)
+    
+    # Pad each sublist to the maximum length with the padding_value
+    padded_list = [sublist + [padding_value] * (max_len - len(sublist)) for sublist in input_list]
+    
+    return padded_list

@@ -1,10 +1,6 @@
 import scipy.io
 import numpy as np
 
-import numpy as np
-import torch
-import scipy.io
-
 def convert_mat_data(data):
     """
     Recursively converts MATLAB structs to dictionaries and NumPy arrays to lists.

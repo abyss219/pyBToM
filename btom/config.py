@@ -1,8 +1,8 @@
-import torch
+import numpy as np
 
 # [stay, west, east, south, north, eat]
-action = torch.tensor([[0, -1,  1,  0,  0,  0],
-                       [0,  0,  0, -1,  1,  0]], dtype=torch.int64)
+action = np.array([[0, -1,  1,  0,  0,  0],
+                       [0,  0,  0, -1,  1,  0]])
 n_action = action.shape[1]
 
 # Grid and belief space settings
