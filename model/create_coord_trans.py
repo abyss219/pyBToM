@@ -1,7 +1,7 @@
 import torch
 from .create_coord_space import create_coord_space
 from .sub2indv import sub2indv
-
+from utils import equals
 
 def create_coord_trans(world, action, p_action_fail):
     """
@@ -23,18 +23,29 @@ def create_coord_trans(world, action, p_action_fail):
     
     # Create coordinate space
     c_sub, is_c_ind_valid = create_coord_space(world)
+    
     n_c_sub = c_sub.shape[1]
     n_world, n_c_ind = is_c_ind_valid.shape
     
     # Initialize transition matrix
     c_trans = torch.zeros((n_c_ind, n_c_ind, n_world, n_action), dtype=torch.float32)
     
-    absorbing_state = n_c_ind - 1  # Explicit index for the absorbing state
-
     for nw in range(n_world):
-        graph_sz = torch.tensor(world[nw]['graph_sz'], dtype=torch.int64)
+        graph_sz = torch.tensor(world[nw]['graph_sz']).unsqueeze(-1)
     
-        c_sub_valid = torch.nonzero(is_c_ind_valid[nw, :n_c_sub], as_tuple=False).view(-1)
+        c_sub_valid = torch.nonzero(is_c_ind_valid[nw:nw+1, :n_c_sub])
+
+        a = is_c_ind_valid[nw:nw+1, :n_c_sub].numpy()
+        import numpy as np
+        a = np.sum(np.nonzero(a)[1])
+        print(a)
+        return
+
+        # print(a.size())
+        # print(torch.sum(a))
+        # print(torch.nonzero(a))
+        # equals(a)
+
         c_sub_invalid = torch.nonzero(~is_c_ind_valid[nw, :n_c_sub], as_tuple=False).view(-1)
     
         in_bounds = graph_sz.unsqueeze(1).repeat(1, c_sub_valid.numel())
@@ -77,14 +88,8 @@ def create_coord_trans(world, action, p_action_fail):
                     c_trans_sub[1, :] = c_sub_valid_indices  # ci
                     c_trans_sub[2, :] = nw  # nw
                     c_trans_sub[3, :] = na  # na
-    
-                    # Valid moves succeed
-                    c_trans[c_trans_sub[0], c_trans_sub[1], c_trans_sub[2], c_trans_sub[3]] = 1 - p_action_fail
-    
-                    # Valid moves fail
-                    c_trans_sub_fail = c_trans_sub.clone()
-                    c_trans_sub_fail[0, :] = c_trans_sub_fail[1, :]  # cj = ci
-                    c_trans[c_trans_sub_fail[0], c_trans_sub_fail[1], c_trans_sub_fail[2], c_trans_sub_fail[3]] += p_action_fail
+                    
+                    c_trans[sub2indv(c_trans.size(),c_trans_sub)] = 1
     
             # Invalid moves: moves out of bounds or into obstacles
             c_trans_stay = is_c_ind_valid[nw, :n_c_sub].clone()

@@ -2,7 +2,7 @@ import torch
 import scipy.io
 from .create_goal_reward import create_goal_reward
 from .config import *
-from utils import convert_mat_data
+from utils import convert_mat_data, equals
 from model import create_coord_trans, create_belief_state, create_belief_state_sptrans
 
 def btom_solve_momdps(beta_score):
@@ -25,16 +25,16 @@ def btom_solve_momdps(beta_score):
     n_worlds = 1
     for nw in range(n_worlds):
         print(f"Processing world {nw+1}/{n_worlds}")
-        goal_reward = create_goal_reward(worlds[nw], n_reward_grid)
+        goal_reward = create_goal_reward(worlds[nw], n_reward_grid)        
         n_goal_reward = goal_reward.shape[0]
         c_trans, c_sub, is_c_ind_valid = create_coord_trans(worlds[nw], action, move_noise)
         
+        print(equals(c_trans))
+        # n_world = len(worlds[nw])
+        # w_trans = torch.eye(n_world)
+        # s_sub, s_dim, b_sub, b_sub_to_g_sub, g_ind_to_b_ind = create_belief_state(is_c_ind_valid, n_belief_grid)
         
-        n_world = len(worlds[nw])
-        w_trans = torch.eye(n_world)
-        s_sub, s_dim, b_sub, b_sub_to_g_sub, g_ind_to_b_ind = create_belief_state(is_c_ind_valid, n_belief_grid)
-        
-        create_belief_state_sptrans(s_dim,s_sub,w_trans,c_trans,obs_dist[nw],b_sub,b_sub_to_g_sub,g_ind_to_b_ind)
+        # create_belief_state_sptrans(s_dim,s_sub,w_trans,c_trans,obs_dist[nw],b_sub,b_sub_to_g_sub,g_ind_to_b_ind)
         # s_trans, s_trans_ind = create_belief_state_sptrans(s_dim,s_sub,w_trans,c_trans,obs_dist[nw],b_sub,b_sub_to_g_sub,g_ind_to_b_ind)
 
 

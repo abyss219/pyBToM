@@ -1,6 +1,6 @@
 import torch
 
-def sub2indv(siz, sub):
+def sub2indv(siz:torch.Tensor, sub):
     """
     Convert subscripts to linear indices.
 
@@ -16,12 +16,13 @@ def sub2indv(siz, sub):
     """
     if sub.numel() == 0:
         return torch.empty(0, dtype=torch.int64)
-    n = len(siz)
+    
     nsub = sub.size(1)
     if not isinstance(siz, torch.Tensor):
         siz_tensor = torch.tensor(siz, dtype=torch.int64)
     else:
         siz_tensor = siz
+        
     k = torch.cat((torch.tensor([1], dtype=torch.int64), torch.cumprod(siz_tensor[:-1], 0))).unsqueeze(1)
     sub = sub.to(dtype=torch.int64)
     ind = torch.sum((sub - 1) * k, dim=0) + 1  # Subtract 1 from sub and add 1 to the result

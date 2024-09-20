@@ -1,10 +1,20 @@
 import torch
 from .barycentric_coord import barycentric_coord
 from .ind2subv import ind2subv
+from utils import equals
+
 def create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist, b_sub, b_to_g, g_ind_to_b_ind):
     # Inputs are PyTorch tensors
     # s_dim: tuple or list with dimensions (n_b_sub, n_c_sub)
     # All indices are adjusted for zero-based indexing in Python
+    
+    
+    a = w_trans
+    print(a.size())
+    print(torch.sum(a))
+    print(torch.nonzero(a))
+    print(equals(a, "w_trans"))
+    return
 
     n_b_sub, n_c_sub = s_dim[0], s_dim[1]
 
@@ -46,44 +56,44 @@ def create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist, b_sub,
     # ca_sub shape: [2, n_ca_ind]
     
     max_co_ind2 = 0
-
+    
+    
     for ni in range(n_ca_ind):
         ci = ca_sub[0, ni] - 1
         ai = ca_sub[1, ni] - 1
 
-        # Adjust for zero-based indexing
-        c_trans_slice = c_trans[:, ci, :, ai]  # shape: [n_c_sub, n_world]
-        c_trans_slice_t = c_trans_slice.t()  # shape: [n_world, n_c_sub]
-        
-        # Compute wc_pred(w2, c2, w1) = p(c2, w2 | w1, c1, a)
-        wc_pred = c_trans_slice_t.unsqueeze(2) * w_trans_precomp  # Broadcasting multiplication
-        # wc_pred shape: [n_world, n_c_sub, n_world]
+        temp = c_trans[:, ci, :, ai].squeeze().t()  
 
-        # Compute wco_pred(w2, c2, o, w1) = p(w2, c2, o | w1, c1, a)
-        wc_pred_reshaped = wc_pred.unsqueeze(2)  # shape: [n_world, n_c_sub, 1, n_world]
-        wco_pred = obs_dist_perm * wc_pred_reshaped  # Element-wise multiplication
+        wc_pred = temp.unsqueeze(-1).repeat(1, 1, n_world) * w_trans_precomp 
         
-        # wco_pred shape: [n_world, n_c_sub, n_obs, n_world]
-
-        # Reshape wco_pred to [n_world, n_c_sub * n_obs, n_world]
-        wco_pred = wco_pred.reshape(n_world, n_c_sub * n_obs, n_world)   
+        wco_pred = obs_dist_perm * wc_pred.reshape(n_world, n_c_sub, 1, n_world).repeat(1, 1, n_obs, 1)
+        wco_pred = wco_pred.reshape(n_world, n_c_sub * n_obs, n_world)
 
         # Find indices where wco_pred > 0
-        co_ind_tmp = torch.nonzero((wco_pred > 0).any(dim=2).any(dim=0)).view(-1)
+        co_ind_tmp = torch.nonzero((wco_pred > 0).any(dim=2).any(dim=0))
+
+                
         n_co_ind_tmp = co_ind_tmp.numel()
         
+        
         if n_co_ind_tmp > 0:
-            
+
             wco_trans[:, :n_co_ind_tmp, :, ci, ai] = wco_pred[:, co_ind_tmp, :]
+            # print(torch.sum(wco_trans))
+            
             co_trans_ind[:n_co_ind_tmp, ci, ai] = co_ind_tmp
             if n_co_ind_tmp > max_co_ind2:
                 max_co_ind2 = n_co_ind_tmp
 
+
+    
+    return
     # Compress these to save memory
     wco_trans = wco_trans[:, :max_co_ind2, :, :, :]
     co_trans_ind = co_trans_ind[:max_co_ind2, :, :]
-    
-    
+    print(max_co_ind2)
+    print(torch.sum(wco_trans))
+    return
     n_bc_ind = n_b_sub * n_c_sub
     max_s_trans_ind = max_obs_next * n_world * max_c_next
     s_trans = torch.zeros(max_s_trans_ind, n_bc_ind, n_action)
@@ -98,16 +108,13 @@ def create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist, b_sub,
         
         b2 = (wco_trans * b_sub_bi).sum(dim=2, keepdim=True)
         # b2 shape: [n_world, max_co_ind2, n_c_sub, n_action]
-
-
         
 
         b2_flat = b2.view(n_world, -1)
-        b2_sum = (b2_flat > 0).sum(dim=0)
-        b2_valid_ind = torch.nonzero(b2_sum > 0).squeeze()
-        print(b2_valid_ind)
+        b2_sum = (b2 > 0).sum(dim=0)
         
-        return
+        b2_valid_ind = torch.nonzero(b2_sum > 0).T
+        
         b2_valid_sub = ind2subv([max_co_ind2, n_c_sub, n_action],b2_valid_ind).T
         
 

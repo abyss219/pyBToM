@@ -1,7 +1,7 @@
 import torch
 from .ind2subv import ind2subv
 from .sub2indv import sub2indv
-
+from utils import equals
 
 def create_coord_space(world):
     """
@@ -33,7 +33,7 @@ def create_coord_space(world):
         obst_pose = world[nw]['obst_pose']
         obst_sz = world[nw]['obst_sz']
         obst_sub = get_obst_sub(obst_pose, obst_sz)
-        obst_ind = sub2indv(graph_sz, obst_sub)
+        obst_ind = sub2indv(graph_sz, obst_sub) - 1
         is_c_ind_valid[nw, obst_ind] = False
 
     return c_sub, is_c_ind_valid
