@@ -34,10 +34,9 @@ def btom_solve_momdps(beta_score):
         
         n_world = length(np.array(worlds[nw]))
         w_trans = np.eye(n_world)
-        # s_sub, s_dim, b_sub, b_sub_to_g_sub, g_ind_to_b_ind = create_belief_state(is_c_ind_valid, n_belief_grid)
+        s_sub, s_dim, b_sub, b_sub_to_g_sub, g_ind_to_b_ind = create_belief_state(is_c_ind_valid, n_belief_grid)
         
-        # create_belief_state_sptrans(s_dim,s_sub,w_trans,c_trans,obs_dist[nw],b_sub,b_sub_to_g_sub,g_ind_to_b_ind)
-        # s_trans, s_trans_ind = create_belief_state_sptrans(s_dim,s_sub,w_trans,c_trans,obs_dist[nw],b_sub,b_sub_to_g_sub,g_ind_to_b_ind)
+        s_trans,s_trans_ind = create_belief_state_sptrans(s_dim,s_sub,w_trans,c_trans,obs_dist[nw],b_sub,b_sub_to_g_sub,g_ind_to_b_ind)
 
 
 

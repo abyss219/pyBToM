@@ -45,6 +45,4 @@ def regular_simplex(dim, k):
 
     # Convert G_sub to G_ind using the g_sub_to_g_ind function
     G_ind = g_sub_to_g_ind(G_sub, dim, k)
-    print(dim)
-    print(k)
     return G_sub, G_ind

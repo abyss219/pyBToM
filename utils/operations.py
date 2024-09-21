@@ -58,3 +58,37 @@ def pad_sublists(input_list, padding_value=np.nan):
     padded_list = [sublist + [padding_value] * (max_len - len(sublist)) for sublist in input_list]
     
     return padded_list
+
+
+def repmat(A, reps):
+    """
+    Simulates the MATLAB repmat function in Python using NumPy.
+    
+    Parameters:
+    A (ndarray): Input array to be replicated.
+    reps (tuple or list): A list or tuple specifying the replication factors for each dimension.
+    
+    Returns:
+    ndarray: The replicated array.
+    """
+    # Ensure the input array A is a NumPy array
+    A = np.array(A)
+
+    # Convert reps to a tuple if it's not already
+    if not isinstance(reps, tuple):
+        reps = tuple(reps)
+
+    # Check the number of dimensions in A
+    A_ndim = A.ndim
+    reps_len = len(reps)
+
+    # If A has fewer dimensions than reps, pad A with singleton dimensions
+    if A_ndim < reps_len:
+        A = np.reshape(A, A.shape + (1,) * (reps_len - A_ndim))
+
+    # Now A has the same number of dimensions as reps
+    # Use numpy's tile function to replicate A according to reps
+    return np.tile(A, reps)
+
+def reshape(A, reps):
+    return np.reshape(A, reps, order='F')

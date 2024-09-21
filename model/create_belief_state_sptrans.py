@@ -1,158 +1,184 @@
-import torch
 from .barycentric_coord import barycentric_coord
 from .ind2subv import ind2subv
-from utils import equals
+from .sub2indv import sub2indv
+from utils import equals, repmat, reshape, find, length
 
-def create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist, b_sub, b_to_g, g_ind_to_b_ind):
-    # Inputs are PyTorch tensors
-    # s_dim: tuple or list with dimensions (n_b_sub, n_c_sub)
-    # All indices are adjusted for zero-based indexing in Python
-    
-    
-    a = w_trans
-    print(a.size())
-    print(torch.sum(a))
-    print(torch.nonzero(a))
-    print(equals(a, "w_trans"))
-    return
+import numpy as np
+
+def create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist:np.ndarray, b_sub, b_to_g, g_ind_to_b_ind):
+    # [s_trans, s_trans_ind] = create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist, b_sub, b_to_g, g_ind_to_b_ind)
+    #
+    # Input:
+    #   s_dim:
+    #   w_trans:
+    #   c_trans:
+    #   obs_dist:
+    #   b_sub:
+    #   b_to_g:
+    #   g_ind_to_b_ind:
+    #
+    # Output:
+    #   s_trans[i,j,k] = p(s_trans_ind i | from s_ind j given action k)
+    #     s_trans = size(n_s_trans_ind, n_s_ind, n_action)
+    #   s_trans_ind[i,j] = next belief state | trans i from s_ind j
+    #     s_trans_ind = size(n_s_trans_ind, n_s_ind, n_action)
+    #
+    # TODO:
+    #   -currently s_trans_inds is unordered, may contain duplicates, items don't occupy adjacent inds
 
     n_b_sub, n_c_sub = s_dim[0], s_dim[1]
 
-    n_world = w_trans.size(0)
-    n_action = c_trans.size(3)
-    n_obs = obs_dist.size(0)
+    n_world = w_trans.shape[0]
+    n_action = c_trans.shape[3]
+    n_obs = obs_dist.shape[0]
 
+    n_w_next = np.sum(w_trans > 0, axis=1)
+    max_w_next = np.max(n_w_next)
 
-    n_w_next = (w_trans > 0).sum(dim=0)
-    max_w_next = n_w_next.max().item()
+    n_c_next = np.sum(c_trans > 0, axis=0)
+    max_c_next = np.max(n_c_next)
 
-    n_c_next = (c_trans > 0).sum(dim=0)
-    max_c_next = n_c_next.max().item()
-
-    n_obs_next = (obs_dist > 0).sum(dim=0)
-    max_obs_next = n_obs_next.max().item()
+    n_obs_next = np.sum(obs_dist > 0, axis=0)
+    max_obs_next = np.max(n_obs_next)
 
     max_co_ind = n_world * max_w_next * max_c_next * max_obs_next
-    
 
-    # wco_trans represents p(w2, [c2,o]_ind | w1, c1, a)
-    wco_trans = torch.zeros(n_world, max_co_ind, n_world, n_c_sub, n_action)
+    # wco_trans represents p(w2,[c2,o]_ind | w1, c1, a)
+    wco_trans = np.zeros((n_world, max_co_ind, n_world, n_c_sub, n_action))
 
     # co_trans_ind gives possible [c2,o]_inds given c1, a (for all wi)
-    co_trans_ind = torch.zeros(max_co_ind, n_c_sub, n_action, dtype=torch.int32)
+    co_trans_ind = np.zeros((max_co_ind, n_c_sub, n_action), dtype='uint32')
 
-    # Precompute to use below
-    obs_dist_perm = obs_dist.permute(2, 1, 0).unsqueeze(3).expand(-1, -1, -1, n_world)
+    # CB: precompute to use below
     
-    
-    # obs_dist_perm shape: [1, n_c_sub, n_obs, n_world]
-
-    w_trans_precomp = w_trans.reshape(n_world, 1, n_world).expand(-1, n_c_sub, -1)
-    # w_trans_precomp shape: [n_world, n_c_sub, n_world]
+    obs_dist_perm = repmat(obs_dist.transpose(2, 1, 0), (1, 1, 1, n_world))
+    w_trans_precomp = repmat(w_trans.reshape(n_world, 1, n_world), (1, n_c_sub, 1))
 
     n_ca_ind = n_c_sub * n_action
-    
-    ca_sub = ind2subv([n_c_sub, n_action], torch.arange(1, n_ca_ind + 1)).T
-    # ca_sub shape: [2, n_ca_ind]
-    
+    ca_indices = np.arange(1, n_ca_ind + 1)
+    ca_sub = ind2subv([n_c_sub, n_action], ca_indices).T
+
+    # compute wco_trans, wco_trans_ind: wca -> wco_ind
     max_co_ind2 = 0
-    
-    
+
     for ni in range(n_ca_ind):
-        ci = ca_sub[0, ni] - 1
-        ai = ca_sub[1, ni] - 1
+        ci, ai = ca_sub[:, ni]
+        ci -= 1  # Adjust for zero-based indexing
+        ai -= 1
 
-        temp = c_trans[:, ci, :, ai].squeeze().t()  
-
-        wc_pred = temp.unsqueeze(-1).repeat(1, 1, n_world) * w_trans_precomp 
+        wc_pred = repmat(np.squeeze(c_trans[:,ci:ci+1,:,ai:ai+1]).T,[1, 1, n_world]) * w_trans_precomp
+        wco_pred = obs_dist_perm * repmat(reshape(wc_pred,[n_world, n_c_sub, 1, n_world]),[1, 1, n_obs, 1])
         
-        wco_pred = obs_dist_perm * wc_pred.reshape(n_world, n_c_sub, 1, n_world).repeat(1, 1, n_obs, 1)
-        wco_pred = wco_pred.reshape(n_world, n_c_sub * n_obs, n_world)
+        wco_pred = reshape(wco_pred, [n_world, n_c_sub * n_obs, n_world])
 
-        # Find indices where wco_pred > 0
-        co_ind_tmp = torch.nonzero((wco_pred > 0).any(dim=2).any(dim=0))
 
-                
-        n_co_ind_tmp = co_ind_tmp.numel()
-        
-        
+        co_ind_tmp = find(np.any(np.any(wco_pred > 0, axis=2), axis=0))
+        n_co_ind_tmp = length(co_ind_tmp)
+
         if n_co_ind_tmp > 0:
-
             wco_trans[:, :n_co_ind_tmp, :, ci, ai] = wco_pred[:, co_ind_tmp, :]
-            # print(torch.sum(wco_trans))
-            
-            co_trans_ind[:n_co_ind_tmp, ci, ai] = co_ind_tmp
+            co_trans_ind[:n_co_ind_tmp, ci, ai] = co_ind_tmp + 1  # Adjust for one-based indexing
+                
             if n_co_ind_tmp > max_co_ind2:
                 max_co_ind2 = n_co_ind_tmp
 
 
-    
-    return
-    # Compress these to save memory
-    wco_trans = wco_trans[:, :max_co_ind2, :, :, :]
-    co_trans_ind = co_trans_ind[:max_co_ind2, :, :]
-    print(max_co_ind2)
-    print(torch.sum(wco_trans))
-    return
+    # compress these to save memory
+    wco_trans = wco_trans[:, 0:max_co_ind2, :, :, :]
+    co_trans_ind = co_trans_ind[0:max_co_ind2, :, :]
+
     n_bc_ind = n_b_sub * n_c_sub
     max_s_trans_ind = max_obs_next * n_world * max_c_next
-    s_trans = torch.zeros(max_s_trans_ind, n_bc_ind, n_action)
-    s_trans_ind = torch.zeros(max_s_trans_ind, n_bc_ind, n_action, dtype=torch.int32)
-    # Compute s_trans and s_trans_ind
+    s_trans = np.zeros((max_s_trans_ind, n_bc_ind, n_action))
+    s_trans_ind = np.zeros((max_s_trans_ind, n_bc_ind, n_action), dtype='uint32')
+
+    # compute s_trans, s_trans_ind
+
     for bi in range(n_b_sub):
-        b_sub_bi = b_sub[:, bi].reshape(1, 1, n_world)
+        b2 = np.sum(wco_trans * repmat(reshape(b_sub[:,bi:bi+1],[1, 1, n_world]),[n_world, max_co_ind2, 1, n_c_sub, n_action]),axis=2, keepdims=True)
+
+        # b2_valid_sub: [co_ind_next; c_ind_prev; a_ind_prev] for each b2_valid_ind
+        b2_valid_ind = find(np.sum(reshape(b2, (b2.shape[0], -1)) > 0, axis=0, keepdims=True))
+        b2_valid_sub = ind2subv([max_co_ind2, n_c_sub, n_action], b2_valid_ind + 1).T
+        second_dim_size = b2.shape[1]
+
+        b2_valid = reshape(b2, (b2.shape[0], -1))
+        b2_valid = b2_valid[:, b2_valid_ind]
+
+        b2_valid_sum = np.sum(b2_valid, axis=0, keepdims=True)
+        b2_valid_norm = b2_valid / repmat(b2_valid_sum, [n_world, 1])
+        
         
 
-        b_sub_bi = b_sub_bi.unsqueeze(-1).unsqueeze(-1)  # Now shape is [1, 1, 3, 1, 1]
-        b_sub_bi = b_sub_bi.repeat(n_world, max_co_ind2, 1, n_c_sub, n_action)
-        
-        b2 = (wco_trans * b_sub_bi).sum(dim=2, keepdim=True)
-        # b2 shape: [n_world, max_co_ind2, n_c_sub, n_action]
-        
+        # CB: b2_valid_norm_unique? apply barycentric_coord1 to as few b_subs as possible...
 
-        b2_flat = b2.view(n_world, -1)
-        b2_sum = (b2 > 0).sum(dim=0)
-        
-        b2_valid_ind = torch.nonzero(b2_sum > 0).T
-        
-        b2_valid_sub = ind2subv([max_co_ind2, n_c_sub, n_action],b2_valid_ind).T
-        
-
-        
-        b2_valid = b2[:, b2_valid_ind]
-        b2_valid_sum = b2_valid.sum(dim=0)
-        b2_valid_norm = b2_valid / b2_valid_sum
-
-        # Compute barycentric coordinates (assuming barycentric_coord is defined)
         neighbors, lambda_ = barycentric_coord(b2_valid_norm, b_to_g)
         neighbors_valid = (neighbors > 0) & (lambda_ > 0)
-        neighbors_valid_ind = torch.nonzero(neighbors_valid)
-        n_neighbors_valid_ind = neighbors_valid_ind.size(0)
 
-        # Get previous sa_inds
-        ca_valid_ind = b2_valid_ind[neighbors_valid_ind[:, 1]]
-        sa_valid_ind = bi * n_c_sub * n_action + ca_valid_ind
+        neighbors_valid_ind = find(neighbors_valid.T)
 
-        # Get b_inds of all neighbors
-        neighbors_valid_b_ind = g_ind_to_b_ind[neighbors[neighbors_valid_ind[:, 0], neighbors_valid_ind[:, 1]]]
+        n_neighbors_valid_ind = len(neighbors_valid_ind)
 
-        # Get co_inds of all neighbors
-        co_valid_ind = co_trans_ind[b2_valid_ind[neighbors_valid_ind[:, 1]], neighbors_valid_ind[:, 1] // n_action, neighbors_valid_ind[:, 1] % n_action]
-        co_valid_sub = torch.stack([co_valid_ind // n_obs, co_valid_ind % n_obs], dim=1).t()
 
-        # Compute bc[o]_inds
-        bc_valid_ind = neighbors_valid_b_ind * n_c_sub + co_valid_sub[0, :]
+        # [neighbor_ind; b2_valid_ind]
+        neighbors_valid_sub = ind2subv(neighbors.shape, neighbors_valid_ind + 1).T
 
-        # Update s_trans and s_trans_ind
-        left_inds = torch.zeros_like(ca_valid_ind)
-        left_inds[torch.cat([torch.tensor([0]), (ca_valid_ind[1:] != ca_valid_ind[:-1]).nonzero().squeeze() + 1])] = 1
-        left_inds = left_inds.cumsum(dim=0) - 1
+        tmp = b2_valid_sub[np.array([1, 2]), :][:, neighbors_valid_sub[1:2, :].squeeze() - 1]
+    
 
-        s_trans_valid_ind = left_inds * n_bc_ind * n_action + sa_valid_ind
-        s_trans.view(-1)[s_trans_valid_ind] = b2_valid_sum[neighbors_valid_ind[:, 1]] * lambda_[neighbors_valid_ind[:, 0], neighbors_valid_ind[:, 1]]
-        s_trans_ind.view(-1)[s_trans_valid_ind] = bc_valid_ind
 
-    # Replace zero indices with 1 to allow indexing value function with s_trans_ind
+        # get previous sa_inds
+        ca_valid_ind = sub2indv([n_c_sub, n_action], tmp)
+        sa_valid_ind = sub2indv([n_b_sub, n_c_sub * n_action], np.vstack([repmat(bi + 1, [1, n_neighbors_valid_ind]), ca_valid_ind]))
+        
+        # get next bc_inds
+
+        # get b_inds of all neighbors
+        neighbors_valid_elements = neighbors.ravel(order='F')[neighbors_valid_ind]
+
+
+        neighbors_flattened = neighbors.ravel(order='F')  # Flatten in column-major order
+        neighbors_valid = neighbors_flattened[neighbors_valid_ind].reshape(-1, 1)  # Get the valid neighbors and reshape
+        neighbors_valid_b_ind = g_ind_to_b_ind[neighbors_valid.flatten().astype(int) - 1]
+
+
+        
+
+        # get co_inds of all neighbors
+        co_trans_ind_flattened = co_trans_ind.ravel(order='F')
+        co_valid_ind = co_trans_ind_flattened[b2_valid_ind[neighbors_valid_sub[1:2, :] - 1]].reshape(-1, 1).T
+        co_valid_sub = ind2subv([n_c_sub, n_obs],co_valid_ind).T
+        bc_valid_ind = sub2indv([n_b_sub, n_c_sub], np.vstack([neighbors_valid_b_ind[np.newaxis, :] + 1, co_valid_sub[0:1, :]]))[np.newaxis, :]
+        ca_valid_ind_diff = find(np.diff(ca_valid_ind))
+
+
+        left_inds = np.zeros(ca_valid_ind.shape)
+        
+        
+        
+        left_inds[np.concatenate([ca_valid_ind_diff, [len(left_inds)-1]])] = np.diff(np.concatenate([[0], ca_valid_ind_diff + 1, [length(ca_valid_ind)]]))
+        
+        left_inds = left_inds + np.arange(1, len(ca_valid_ind) + 1) - np.cumsum(left_inds)
+
+        s_trans_valid_ind = sub2indv([max_s_trans_ind, n_bc_ind * n_action], np.vstack([left_inds, sa_valid_ind]))
+
+        
+
+        
+        l_flatten = lambda_.ravel(order='F')
+        l = l_flatten[neighbors_valid_ind - 1].reshape(-1, 1) + 1
+        
+
+
+        s_trans_flatten = s_trans.ravel(order='F')
+        s_trans_flatten[s_trans_valid_ind - 1] = b2_valid_sum.squeeze()[neighbors_valid_sub[1, :] - 1] * l.T
+        s_trans = s_trans_flatten.reshape(s_trans.shape, order='F')
+
+
+        s_trans_ind_flatten = s_trans_ind.ravel(order='F')
+        s_trans_ind_flatten[s_trans_valid_ind - 1] = bc_valid_ind
+        s_trans_ind = s_trans_ind_flatten.reshape(s_trans_ind.shape, order='F')
+
     s_trans_ind[s_trans_ind == 0] = 1
 
     return s_trans, s_trans_ind

@@ -13,7 +13,7 @@ def equals(a):
     
     # Extract matrix and ensure it's a NumPy array
     M_matlab = np.array(mat[key])
-    
+
     if M_matlab.shape != a.shape:
         print(f"Wrong dimension, input: {a.shape}; matlab: {M_matlab.shape}")
         return False
