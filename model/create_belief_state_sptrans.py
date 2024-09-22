@@ -1,7 +1,7 @@
 from .barycentric_coord import barycentric_coord
 from .ind2subv import ind2subv
 from .sub2indv import sub2indv
-from utils import equals, repmat, reshape, find, length
+from utils import repmat, reshape, find, length
 
 import numpy as np
 

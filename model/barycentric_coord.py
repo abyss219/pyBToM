@@ -1,6 +1,5 @@
 import numpy as np
 from .g_sub_to_g_ind import g_sub_to_g_ind
-from utils import equals
 
 def barycentric_coord(b_sub, b_to_g):
     """

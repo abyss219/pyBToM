@@ -1,5 +1,4 @@
 import numpy as np
-from .ind2subv import ind2subv
 from utils import length, find
 
 def create_state_reward(world, c_sub, is_c_ind_valid, goal_reward, cost):

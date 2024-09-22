@@ -1,9 +1,5 @@
-import torch
-from .simplex import regular_simplex
-from .simplex import belief_simplex, belief_simplex
-
+from .simplex import regular_simplex, belief_simplex
 from .ind2subv import ind2subv
-
 import numpy as np
 
 def create_belief_space(n_world, n_grid):

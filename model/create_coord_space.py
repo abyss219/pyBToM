@@ -1,7 +1,6 @@
 import numpy as np
 from .ind2subv import ind2subv
 from .sub2indv import sub2indv
-from utils import equals
 
 def create_coord_space(world):
     """

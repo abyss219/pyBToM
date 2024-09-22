@@ -1,6 +1,6 @@
 from .create_coord_space import create_coord_space
 from .sub2indv import sub2indv
-from utils import equals, find, pad_sublists, length
+from utils import find, pad_sublists, length
 import numpy as np
 
 def create_coord_trans(world, action, p_action_fail):

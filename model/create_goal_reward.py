@@ -1,5 +1,5 @@
 import numpy as np
-from model import ind2subv
+from .ind2subv import ind2subv
 from utils import length, pad_sublists
 
 def create_goal_reward(worlds, n_reward_grid):

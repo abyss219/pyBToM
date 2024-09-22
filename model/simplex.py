@@ -1,11 +1,6 @@
-import torch
-import itertools
 from .g_sub_to_g_ind import g_sub_to_g_ind
 from .ind2subv import ind2subv
 from utils import find
-
-import torch
-
 import numpy as np
 
 def belief_simplex(G, k):
