@@ -20,8 +20,6 @@ def btom_solve_momdps(beta_score):
         obs_dist = np.array(obs_dist)
 
 
-    
-
     n_worlds = len(worlds)
     for nw in range(n_worlds):
         print(f"Processing world {nw+1}/{n_worlds}")
