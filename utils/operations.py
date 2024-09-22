@@ -23,7 +23,7 @@ def find(arr, condition=None):
         result = np.nonzero(condition(arr))
     
     # Convert multi-dimensional indices to linear indices
-    linear_indices = np.ravel_multi_index(result, arr.shape)
+    linear_indices = np.ravel_multi_index(result, arr.shape, order='F')
     
     return linear_indices
 

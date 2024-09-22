@@ -100,21 +100,17 @@ def create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist:np.ndar
         # b2_valid_sub: [co_ind_next; c_ind_prev; a_ind_prev] for each b2_valid_ind
         b2_valid_ind = find(np.sum(reshape(b2, (b2.shape[0], -1)) > 0, axis=0, keepdims=True))
         b2_valid_sub = ind2subv([max_co_ind2, n_c_sub, n_action], b2_valid_ind + 1).T
-        second_dim_size = b2.shape[1]
 
         b2_valid = reshape(b2, (b2.shape[0], -1))
         b2_valid = b2_valid[:, b2_valid_ind]
 
         b2_valid_sum = np.sum(b2_valid, axis=0, keepdims=True)
         b2_valid_norm = b2_valid / repmat(b2_valid_sum, [n_world, 1])
-        
-        
+
 
         # CB: b2_valid_norm_unique? apply barycentric_coord1 to as few b_subs as possible...
-
         neighbors, lambda_ = barycentric_coord(b2_valid_norm, b_to_g)
         neighbors_valid = (neighbors > 0) & (lambda_ > 0)
-
         neighbors_valid_ind = find(neighbors_valid.T)
 
         n_neighbors_valid_ind = len(neighbors_valid_ind)
@@ -134,13 +130,11 @@ def create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist:np.ndar
         # get next bc_inds
 
         # get b_inds of all neighbors
-        neighbors_valid_elements = neighbors.ravel(order='F')[neighbors_valid_ind]
-
-
         neighbors_flattened = neighbors.ravel(order='F')  # Flatten in column-major order
-        neighbors_valid = neighbors_flattened[neighbors_valid_ind].reshape(-1, 1)  # Get the valid neighbors and reshape
-        neighbors_valid_b_ind = g_ind_to_b_ind[neighbors_valid.flatten().astype(int) - 1]
+        neighbors_valid_t = neighbors_flattened[neighbors_valid_ind]  # Get the valid neighbors and reshape
+        neighbors_valid_b_ind = g_ind_to_b_ind[neighbors_valid_t.astype(int) - 1]
 
+            
 
         
 
@@ -162,22 +156,20 @@ def create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist:np.ndar
 
         s_trans_valid_ind = sub2indv([max_s_trans_ind, n_bc_ind * n_action], np.vstack([left_inds, sa_valid_ind]))
 
-        
-
-        
         l_flatten = lambda_.ravel(order='F')
-        l = l_flatten[neighbors_valid_ind - 1].reshape(-1, 1) + 1
+        l = l_flatten[neighbors_valid_ind].reshape(-1, 1, order='F')
         
-
-
         s_trans_flatten = s_trans.ravel(order='F')
         s_trans_flatten[s_trans_valid_ind - 1] = b2_valid_sum.squeeze()[neighbors_valid_sub[1, :] - 1] * l.T
         s_trans = s_trans_flatten.reshape(s_trans.shape, order='F')
 
 
+
+
         s_trans_ind_flatten = s_trans_ind.ravel(order='F')
-        s_trans_ind_flatten[s_trans_valid_ind - 1] = bc_valid_ind
+        s_trans_ind_flatten[s_trans_valid_ind - 1] = bc_valid_ind - 1
         s_trans_ind = s_trans_ind_flatten.reshape(s_trans_ind.shape, order='F')
+
 
     s_trans_ind[s_trans_ind == 0] = 1
 

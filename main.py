@@ -1,16 +1,15 @@
-from model import create_belief_state_sptrans
+from model import create_state_reward
 import torch
 import numpy as np
 from utils import equals
 
-# Test cases for Python code
-s_dim = [2, 2]
-s_sub = np.array([[1, 2], [1, 2]])
-w_trans = np.array([[0.7, 0.3], [0.4, 0.6]])
-c_trans = np.random.rand(2, 2, 2, 2)
-obs_dist = np.random.rand(2, 2)
-b_sub = np.random.rand(2, 2)
-b_to_g = np.random.rand(2, 2)
-g_ind_to_b_ind = np.array([1, 2])
+# Test Case 1: Single World, Single Coordinate, Single Goal
+world = [{'goal_pose': [[np.array([1, 1])]]}]
+c_sub = np.array([[1], [1]])
+is_c_ind_valid = np.array([[True]])
+goal_reward = np.array([[10]])
+cost = [1, 2]
 
-s_trans_python, s_trans_ind_python = create_belief_state_sptrans(s_dim, s_sub, w_trans, c_trans, obs_dist, b_sub, b_to_g, g_ind_to_b_ind)
+reward = create_state_reward(world, c_sub, is_c_ind_valid, goal_reward, cost)
+print('Python Reward:')
+print(reward)

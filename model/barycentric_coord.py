@@ -1,5 +1,6 @@
 import numpy as np
 from .g_sub_to_g_ind import g_sub_to_g_ind
+from utils import equals
 
 def barycentric_coord(b_sub, b_to_g):
     """
@@ -16,6 +17,7 @@ def barycentric_coord(b_sub, b_to_g):
     b_sub_u, u_ind = np.unique(b_sub_t, axis=0, return_inverse=True)
     n_b_sub, n_dim = b_sub_u.shape
 
+
     # Compute g_sub
     g_sub = np.dot(b_to_g, b_sub_u.T)
 
@@ -28,7 +30,7 @@ def barycentric_coord(b_sub, b_to_g):
     Id = np.eye(n_dim)
     b_coord = np.zeros((n_dim, n_b_sub))
     neighbor_g_ind = np.zeros((n_dim, n_b_sub))
-    k = b_to_g.flat[0]
+    k = b_to_g.flatten(order='F')[0]
 
     for ni in range(n_b_sub):
         d_ni = d[:, ni]
@@ -37,9 +39,11 @@ def barycentric_coord(b_sub, b_to_g):
 
         # Compute neighboring vertices
         v[:, 0, ni] = base[:, ni]
+        
         for nd in range(n_dim - 1):
             v[:, nd + 1, ni] = v[:, nd, ni] + Id[:, d_order[nd]]
         neighbor_g_ind[:, ni] = g_sub_to_g_ind(v[:, :, ni], n_dim, k)
+        
 
         # Compute barycentric coordinates
         b_coord[n_dim - 1, ni] = d_sort[n_dim - 2]

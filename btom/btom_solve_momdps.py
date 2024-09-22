@@ -1,10 +1,11 @@
-import torch
+import os
 import numpy as np
 import scipy.io
 from .create_goal_reward import create_goal_reward
 from .config import *
 from utils import convert_mat_data, equals, length
-from model import create_coord_trans, create_belief_state, create_belief_state_sptrans
+from model import create_coord_trans, create_belief_state, create_belief_state_sptrans, create_belief_state_reward, mdp_Q_VI
+
 
 def btom_solve_momdps(beta_score):
     # Load stimuli (worlds) and model parameters
@@ -23,7 +24,6 @@ def btom_solve_momdps(beta_score):
     
 
     n_worlds = len(worlds)
-    n_worlds = 1
     for nw in range(n_worlds):
         print(f"Processing world {nw+1}/{n_worlds}")
         goal_reward = create_goal_reward(worlds[nw], n_reward_grid)
@@ -37,7 +37,15 @@ def btom_solve_momdps(beta_score):
         s_sub, s_dim, b_sub, b_sub_to_g_sub, g_ind_to_b_ind = create_belief_state(is_c_ind_valid, n_belief_grid)
         
         s_trans,s_trans_ind = create_belief_state_sptrans(s_dim,s_sub,w_trans,c_trans,obs_dist[nw],b_sub,b_sub_to_g_sub,g_ind_to_b_ind)
+        # equals(s_trans_ind, True)
 
+        mdp_options['trans_ind'] = s_trans_ind
 
+        savedir = 'output'
+        os.makedirs(savedir, exist_ok=True)
 
-
+        for ng in range(n_goal_reward):
+            s_reward = create_belief_state_reward(worlds[nw],s_sub,s_dim,b_sub,c_sub,is_c_ind_valid,goal_reward[ng,:][np.newaxis, :],np.array(action_cost)[np.newaxis, :])
+            Q,V,n_iter,err = mdp_Q_VI([],s_trans,s_reward,mdp_options)
+            filename = f"{savedir}/value{ng:03d}.npz"
+            np.savez(filename, Q=Q, V=V)
