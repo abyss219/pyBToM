@@ -5,7 +5,7 @@ import os
 
 
 # Load data from .mat files
-btom = sio.loadmat('data/btom_results_complete.mat')
+btom = sio.loadmat('btom_results_complete.mat')
 people = sio.loadmat('data/human_data.mat')
 
 # Set exclusion list and inclusion set
