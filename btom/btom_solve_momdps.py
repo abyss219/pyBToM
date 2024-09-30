@@ -32,17 +32,28 @@ def btom_solve_momdps(beta_score):
         n_world = length(np.array(worlds[nw]))
         w_trans = np.eye(n_world)
         s_sub, s_dim, b_sub, b_sub_to_g_sub, g_ind_to_b_ind = create_belief_state(is_c_ind_valid, n_belief_grid)
-        
+
         s_trans,s_trans_ind = create_belief_state_sptrans(s_dim,s_sub,w_trans,c_trans,obs_dist[nw],b_sub,b_sub_to_g_sub,g_ind_to_b_ind)
         # equals(s_trans_ind, True)
 
         mdp_options['trans_ind'] = s_trans_ind
 
-        savedir = 'output'
+        savedir = f'output/solve_momdps/worlds{nw + 1}'
         os.makedirs(savedir, exist_ok=True)
 
+        # for ng in range(n_goal_reward):
+        #     s_reward = create_belief_state_reward(worlds[nw],s_sub,s_dim,b_sub,c_sub,is_c_ind_valid,goal_reward[ng,:][np.newaxis, :],np.array(action_cost)[np.newaxis, :])
+        #     Q,V,n_iter,err = mdp_Q_VI([],s_trans,s_reward,mdp_options)
+        #     filename = f"{savedir}/value{ng + 1:03d}.npz"
+        #     np.savez(filename, Q=Q, V=V)
+
         for ng in range(n_goal_reward):
-            s_reward = create_belief_state_reward(worlds[nw],s_sub,s_dim,b_sub,c_sub,is_c_ind_valid,goal_reward[ng,:][np.newaxis, :],np.array(action_cost)[np.newaxis, :])
-            Q,V,n_iter,err = mdp_Q_VI([],s_trans,s_reward,mdp_options)
-            filename = f"{savedir}/value{ng:03d}.npz"
-            np.savez(filename, Q=Q, V=V)
+            s_reward = create_belief_state_reward(worlds[nw], s_sub, s_dim, b_sub, c_sub, is_c_ind_valid, goal_reward[ng, :][np.newaxis, :], np.array(action_cost)[np.newaxis, :])
+            Q, V, n_iter, err = mdp_Q_VI([], s_trans, s_reward, mdp_options)
+
+            # Create a dictionary with the data you want to save
+            data_dict = {'Q': Q, 'V': V}
+
+            # Save the data to a .mat file
+            filename = f"{savedir}/value{ng + 1:03d}.mat"
+            scipy.io.savemat(filename, data_dict)

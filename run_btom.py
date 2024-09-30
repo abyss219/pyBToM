@@ -8,8 +8,6 @@ def run_btom():
     for beta_score in beta_score_values:
         pass
 
-    btom_solve_momdps(0.5)
-
-
+    btom_solve_momdps(5)
 
 run_btom()
